@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { createFFmpeg, fetchFile } from '@ffmpeg/ffmpeg';
 import Nouislider from 'nouislider-react';
 import 'nouislider/distribute/nouislider.css';
 
@@ -9,6 +10,7 @@ function App() {
   const [startTime, setStartTime] = useState(0);
   const [videoSrc, setVideoSrc] = useState('');
   const [videoFileValue, setVideoFileValue] = useState('');
+  const [imageFileValue, setImageFileValue] = useState('');
   const [isScriptLoaded, setIsScriptLoaded] = useState(false);
   const [videoTrimmedUrl, setVideoTrimmedUrl] = useState('');
   const videoRef = useRef();
@@ -43,6 +45,12 @@ function App() {
     setVideoSrc(blobURL);
   };
 
+  //Handle Upload of the image
+  const handleImageUpload = (event) => {
+    const file = event.target.files[0];
+    setImageFileValue(file);
+  };
+
   //Convert the time obtained from the video to HH:MM:SS format
   const convertToHHMMSS = (val) => {
     const secNum = parseInt(val, 10);
@@ -71,18 +79,18 @@ function App() {
 
   useEffect(() => {
     //Load the ffmpeg script
-    loadScript(
-      'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.2/dist/ffmpeg.min.js',
-    ).then(() => {
-      if (typeof window !== 'undefined') {
-        // creates a ffmpeg instance.
-        ffmpeg = window.FFmpeg.createFFmpeg({ log: true });
+    // loadScript(
+    //   'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.2/dist/ffmpeg.min.js',
+    // ).then(() => {
+    //   if (typeof window !== 'undefined') {
+    //     // creates a ffmpeg instance.
+        ffmpeg = createFFmpeg({ log: true });
         //Load ffmpeg.wasm-core script
         ffmpeg.load();
         //Set true that the script is loaded
         setIsScriptLoaded(true);
-      }
-    });
+      // }
+    // });
   }, []);
 
   //Get the duration of the video using videoRef
@@ -144,16 +152,18 @@ function App() {
   const handleTrim = async () => {
     if (isScriptLoaded) {
         const { name, type } = videoFileValue;
+        const { name: imageName, type: imageType } = imageFileValue;
         // await ffmpeg.load();
         //Write video to memory
         ffmpeg.FS(
           'writeFile',
           name,
-          await window.FFmpeg.fetchFile(videoFileValue),
+          await fetchFile(videoFileValue),
         );  
         const videoFileType = type.split('/')[1];
         //Run the ffmpeg command to trim video
         //? trem file code
+        // ? Done
         // await ffmpeg.run(
         //   '-i',
         //   name,
@@ -169,15 +179,33 @@ function App() {
         // );
 
         //fade in fade out
+        // ? Done
         // await ffmpeg.run(
         //   '-i',
         //   name,
         //   '-vf',
-        //   `fade=in:0:d=5`,
+        //   `fade=in:0:d=1`,
         //   `out.${videoFileType}`,
         // );
 
-        // add text tom video
+
+        // fade between two videos in white
+        // ? Done
+        // await ffmpeg.run(
+        //   '-i',
+        //   name,
+        //   '-i',
+        //   name,
+        //   '-filter_complex',
+        //   `[0]fade=t=out:d=0.2:st=2.9:c=white[v0];[1]fade=t=in:d=0.2:c=white[v1];[v0][0:a][v1][1:a]concat=n=2:v=1:a=1[v][a]`,
+        //   '-map',
+        //   '[v]',
+        //   '-map',
+        //   '[a]',
+        //   `out.${videoFileType}`,
+        // );
+
+        // add text to video
         // await ffmpeg.run(
         //   '-i',
         //   name,
@@ -188,19 +216,37 @@ function App() {
         //   `out.${videoFileType}`,
         // );
         
-        // add two videos beside the other
-        await ffmpeg.run(
-          '-i',
-          name,
-          '-i',
-          name,
-          '-filter_complex',
-          '[1:v][0:v]scale2ref[wm][base];[base][wm]hstack=2',
-          `out.${videoFileType}`,
-        );
 
+        // add two videos beside the other
+        // ? Done
+        // await ffmpeg.run(
+        //   '-i',
+        //   name,
+        //   '-i',
+        //   name,
+        //   '-filter_complex',
+        //   '[1:v][0:v]scale2ref[wm][base];[base][wm]hstack=2',
+        //   `out.${videoFileType}`,
+        // );
+        
+        // add four videos in a grid using ffmpeg
+        // ? Done
+        // await ffmpeg.run(
+        //   '-i',
+        //   name,
+        //   '-i',
+        //   name,
+        //   '-i',
+        //   name,
+        //   '-i',
+        //   name,
+        //   '-filter_complex',
+        //   '[0:v][1:v]hstack=inputs=2[top];[2:v][3:v]hstack=inputs=2[bottom];[top][bottom]vstack=inputs=2',
+        //   `out.${videoFileType}`,
+        // );
 
         // merge two videos after the other
+        // ? Done
         // await ffmpeg.run(
         //   '-i',
         //   name,
@@ -215,10 +261,21 @@ function App() {
         //   `out.${videoFileType}`,
         // );
         
+        // add image to video
+        // ? Done
+        await ffmpeg.run(
+          '-i',
+          name,
+          '-i',
+          imageName,
+          '-filter_complex',
+          `[0:v][1:v]overlay=10:10:enabled='between(t,0,5)'[v]`,
+          `out.${videoFileType}`,
+        );
 
         //Convert data to url and store in videoTrimmedUrl state
-        const data = ffmpeg.FS('readFile', `out.${videoFileType}`);
-        const url = URL.createObjectURL(
+        let data = ffmpeg.FS('readFile', `out.${videoFileType}`);
+        let url = URL.createObjectURL(
           new Blob([data.buffer], { type: videoFileValue.type }),
         );
         setVideoTrimmedUrl(url);
@@ -237,6 +294,7 @@ function App() {
   return (
     <div className="App">
       <input type="file" onChange={handleFileUpload} />
+      <input type="file" onChange={handleImageUpload} />
       <br />
       {videoSrc.length ? (
         <React.Fragment>
@@ -247,7 +305,7 @@ function App() {
           <Nouislider
             behaviour="tap-drag"
             step={1}
-            margin={3}
+            margin={1}
             limit={30}
             range={{ min: 0, max: videoDuration || 2 }}
             start={[0, videoDuration || 2]}
