@@ -269,7 +269,7 @@ function App() {
           '-i',
           imageName,
           '-filter_complex',
-          `[0:v][1:v]overlay=10:10:enabled='between(t,0,5)'[v]`,
+          `[0:v][1:v]overlay=0:0:enabled='between(t,0,5)'[v]`,
           `out.${videoFileType}`,
         );
 
