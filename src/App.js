@@ -86,7 +86,7 @@ function App() {
     // ).then(() => {
     //   if (typeof window !== 'undefined') {
     //     // creates a ffmpeg instance.
-        ffmpeg = createFFmpeg({ log: false });
+        ffmpeg = createFFmpeg({ log: true });
         //Load ffmpeg.wasm-core script
         ffmpeg.load();
         //Set true that the script is loaded
@@ -222,7 +222,7 @@ function App() {
         //   '-i',
         //   name,
         //   '-vf',
-        //   `drawtext=text='Hello world':x=(w-text_w)/2:y=(h-text_h)/2:fontfile=/path/to/font.ttf:fontcolor=white:fontsize=48`,
+        //   `drawtext=text='Hello world':x=(w-text_w)/2:y=(h-text_h)/2:fontfile==/system/fonts/DroidSans-Bold.ttf:fontcolor=white:fontsize=48`,
         //   `out.${videoFileType}`,
         // );
         
@@ -283,26 +283,26 @@ function App() {
         //   `out.${videoFileType}`,
         // );
         
-        // add sound to video
+        // add sound to video and mute the video
         // ? Done
-        await ffmpeg.run(
-          '-i',
-          name,
-          '-i',
-          imageName,
-          "-filter_complex",
-          "[1:a]amerge=inputs=1[a]",
-          "-map",
-          "0:v",
-          "-map",
-          "[a]",
-          "-c:v",
-          "copy",
-          "-ac",
-          "1",
-          "-shortest",
-          `out.${videoFileType}`
-        );
+        // await ffmpeg.run(
+        //   '-i',
+        //   name,
+        //   '-i',
+        //   imageName,
+        //   "-filter_complex",
+        //   "[1:a]amerge=inputs=1[a]",
+        //   "-map",
+        //   "0:v",
+        //   "-map",
+        //   "[a]",
+        //   "-c:v",
+        //   "copy",
+        //   "-ac",
+        //   "1",
+        //   "-shortest",
+        //   `out.${videoFileType}`
+        // );
 
         //Convert data to url and store in videoTrimmedUrl state
         let data = ffmpeg.FS('readFile', `out.${videoFileType}`);
