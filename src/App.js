@@ -1,23 +1,277 @@
-import logo from './logo.svg';
-import './App.css';
+import React, { useEffect, useRef, useState } from 'react';
+import Nouislider from 'nouislider-react';
+import 'nouislider/distribute/nouislider.css';
 
+let ffmpeg; //Store the ffmpeg instance
 function App() {
+  const [videoDuration, setVideoDuration] = useState(0);
+  const [endTime, setEndTime] = useState(0);
+  const [startTime, setStartTime] = useState(0);
+  const [videoSrc, setVideoSrc] = useState('');
+  const [videoFileValue, setVideoFileValue] = useState('');
+  const [isScriptLoaded, setIsScriptLoaded] = useState(false);
+  const [videoTrimmedUrl, setVideoTrimmedUrl] = useState('');
+  const videoRef = useRef();
+  let initialSliderValue = 0;
+
+  //Created to load script by passing the required script and append in head tag
+  const loadScript = (src) => {
+    return new Promise((onFulfilled, _) => {
+      const script = document.createElement('script');
+      let loaded;
+      script.async = 'async';
+      script.defer = 'defer';
+      script.setAttribute('src', src);
+      script.onreadystatechange = script.onload = () => {
+        if (!loaded) {
+          onFulfilled(script);
+        }
+        loaded = true;
+      };
+      script.onerror = function () {
+        console.log('Script failed to load');
+      };
+      document.getElementsByTagName('head')[0].appendChild(script);
+    });
+  };
+
+  //Handle Upload of the video
+  const handleFileUpload = (event) => {
+    const file = event.target.files[0];
+    const blobURL = URL.createObjectURL(file);
+    setVideoFileValue(file);
+    setVideoSrc(blobURL);
+  };
+
+  //Convert the time obtained from the video to HH:MM:SS format
+  const convertToHHMMSS = (val) => {
+    const secNum = parseInt(val, 10);
+    let hours = Math.floor(secNum / 3600);
+    let minutes = Math.floor((secNum - hours * 3600) / 60);
+    let seconds = secNum - hours * 3600 - minutes * 60;
+
+    if (hours < 10) {
+      hours = '0' + hours;
+    }
+    if (minutes < 10) {
+      minutes = '0' + minutes;
+    }
+    if (seconds < 10) {
+      seconds = '0' + seconds;
+    }
+    let time;
+    // only mm:ss
+    if (hours === '00') {
+      time = minutes + ':' + seconds;
+    } else {
+      time = hours + ':' + minutes + ':' + seconds;
+    }
+    return time;
+  };
+
+  useEffect(() => {
+    //Load the ffmpeg script
+    loadScript(
+      'https://cdn.jsdelivr.net/npm/@ffmpeg/ffmpeg@0.11.2/dist/ffmpeg.min.js',
+    ).then(() => {
+      if (typeof window !== 'undefined') {
+        // creates a ffmpeg instance.
+        ffmpeg = window.FFmpeg.createFFmpeg({ log: true });
+        //Load ffmpeg.wasm-core script
+        ffmpeg.load();
+        //Set true that the script is loaded
+        setIsScriptLoaded(true);
+      }
+    });
+  }, []);
+
+  //Get the duration of the video using videoRef
+  useEffect(() => {
+    if (videoRef && videoRef.current) {
+      const currentVideo = videoRef.current;
+      currentVideo.onloadedmetadata = () => {
+        setVideoDuration(currentVideo.duration);
+        setEndTime(currentVideo.duration);
+      };
+    }
+  }, [videoSrc]);
+
+  //Called when handle of the nouislider is being dragged
+  const updateOnSliderChange = (values, handle) => {
+    setVideoTrimmedUrl('');
+    let readValue;
+    if (handle) {
+      readValue = values[handle] | 0;
+      if (endTime !== readValue) {
+        setEndTime(readValue);
+      }
+    } else {
+      readValue = values[handle] | 0;
+      if (initialSliderValue !== readValue) {
+        initialSliderValue = readValue;
+        if (videoRef && videoRef.current) {
+          videoRef.current.currentTime = readValue;
+          setStartTime(readValue);
+        }
+      }
+    }
+  };
+
+  //Play the video when the button is clicked
+  const handlePlay = () => {
+    if (videoRef && videoRef.current) {
+      videoRef.current.play();
+    }
+  };
+
+  //Play the video when the button is clicked
+  const handlePause = () => {
+    if (videoRef && videoRef.current) {
+      videoRef.current.pause();
+    }
+  };
+
+  //Pause the video when then the endTime matches the currentTime of the playing video
+  const handlePauseVideo = (e) => {
+    const currentTime = Math.floor(e.currentTarget.currentTime);
+
+    if (currentTime === endTime) {
+      e.currentTarget.pause();
+    }
+  };
+
+  //Trim functionality of the video
+  const handleTrim = async () => {
+    if (isScriptLoaded) {
+        const { name, type } = videoFileValue;
+        // await ffmpeg.load();
+        //Write video to memory
+        ffmpeg.FS(
+          'writeFile',
+          name,
+          await window.FFmpeg.fetchFile(videoFileValue),
+        );  
+        const videoFileType = type.split('/')[1];
+        //Run the ffmpeg command to trim video
+        //? trem file code
+        // await ffmpeg.run(
+        //   '-i',
+        //   name,
+        //   '-ss',
+        //   `${convertToHHMMSS(startTime)}`,
+        //   '-to',
+        //   `${convertToHHMMSS(endTime)}`,
+        //   '-acodec',
+        //   'copy',
+        //   '-vcodec',
+        //   'copy',
+        //   `out.${videoFileType}`,
+        // );
+
+        //fade in fade out
+        // await ffmpeg.run(
+        //   '-i',
+        //   name,
+        //   '-vf',
+        //   `fade=in:0:d=5`,
+        //   `out.${videoFileType}`,
+        // );
+
+        // add text tom video
+        // await ffmpeg.run(
+        //   '-i',
+        //   name,
+        //   '-vf',
+        //   `drawtext=text='Hello World':fontcolor=white:fontsize=30:box=1:boxcolor=0x00000099:boxborderw=5:x=(w-text_w)/2: y=(h-text_h)/2`,
+        //   '-c:a',
+        //   'copy',
+        //   `out.${videoFileType}`,
+        // );
+        
+        // add two videos beside the other
+        await ffmpeg.run(
+          '-i',
+          name,
+          '-i',
+          name,
+          '-filter_complex',
+          '[1:v][0:v]scale2ref[wm][base];[base][wm]hstack=2',
+          `out.${videoFileType}`,
+        );
+
+
+        // merge two videos after the other
+        // await ffmpeg.run(
+        //   '-i',
+        //   name,
+        //   '-i',
+        //   name,
+        //   '-filter_complex',
+        //   '[0:v] [0:a] [1:v] [1:a] concat=n=2:v=1:a=1 [v] [a]',
+        //   '-map',
+        //   '[v]',
+        //   '-map',
+        //   '[a]',
+        //   `out.${videoFileType}`,
+        // );
+        
+
+        //Convert data to url and store in videoTrimmedUrl state
+        const data = ffmpeg.FS('readFile', `out.${videoFileType}`);
+        const url = URL.createObjectURL(
+          new Blob([data.buffer], { type: videoFileValue.type }),
+        );
+        setVideoTrimmedUrl(url);
+      
+    }
+  };
+
+  const handleDownload = () => {
+    const { name,type } = videoFileValue;
+    let a = document.createElement('a');
+    a.href = videoTrimmedUrl;
+    a.download = name+"."+type.split('/')[1];
+    a.click();
+  };
+
   return (
     <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+      <input type="file" onChange={handleFileUpload} />
+      <br />
+      {videoSrc.length ? (
+        <React.Fragment>
+          <video src={videoSrc} ref={videoRef} onTimeUpdate={handlePauseVideo}>
+            <source src={videoSrc} type={videoFileValue.type} />
+          </video>
+          <br />
+          <Nouislider
+            behaviour="tap-drag"
+            step={1}
+            margin={3}
+            limit={30}
+            range={{ min: 0, max: videoDuration || 2 }}
+            start={[0, videoDuration || 2]}
+            connect
+            onUpdate={updateOnSliderChange}
+          />
+          <br />
+          Start duration: {convertToHHMMSS(startTime)} &nbsp; End duration:{' '}
+          {convertToHHMMSS(endTime)}
+          <br />
+          <button onClick={handlePlay}>Play</button> &nbsp;
+          <button onClick={handlePause}>Pause</button> &nbsp;
+          <button onClick={handleTrim}>Trim</button> &nbsp;
+          <button onClick={handleDownload}>Download</button>
+          <br />
+          {videoTrimmedUrl && (
+            <video controls>
+              <source src={videoTrimmedUrl} type={videoFileValue.type} />
+            </video>
+          )}
+        </React.Fragment>
+      ) : (
+        ''
+      )}
     </div>
   );
 }
