@@ -3,6 +3,7 @@ import { createFFmpeg, fetchFile } from '@ffmpeg/ffmpeg';
 import Nouislider from 'nouislider-react';
 import 'nouislider/distribute/nouislider.css';
 
+
 let ffmpeg; //Store the ffmpeg instance
 function App() {
   const [videoDuration, setVideoDuration] = useState(0);
@@ -13,29 +14,30 @@ function App() {
   const [imageFileValue, setImageFileValue] = useState('');
   const [isScriptLoaded, setIsScriptLoaded] = useState(false);
   const [videoTrimmedUrl, setVideoTrimmedUrl] = useState('');
+  const [videoRatio, setVideoRatio] = useState({ width: 0, height: 0 })
   const videoRef = useRef();
   let initialSliderValue = 0;
 
   //Created to load script by passing the required script and append in head tag
-  const loadScript = (src) => {
-    return new Promise((onFulfilled, _) => {
-      const script = document.createElement('script');
-      let loaded;
-      script.async = 'async';
-      script.defer = 'defer';
-      script.setAttribute('src', src);
-      script.onreadystatechange = script.onload = () => {
-        if (!loaded) {
-          onFulfilled(script);
-        }
-        loaded = true;
-      };
-      script.onerror = function () {
-        console.log('Script failed to load');
-      };
-      document.getElementsByTagName('head')[0].appendChild(script);
-    });
-  };
+  // const loadScript = (src) => {
+  //   return new Promise((onFulfilled, _) => {
+  //     const script = document.createElement('script');
+  //     let loaded;
+  //     script.async = 'async';
+  //     script.defer = 'defer';
+  //     script.setAttribute('src', src);
+  //     script.onreadystatechange = script.onload = () => {
+  //       if (!loaded) {
+  //         onFulfilled(script);
+  //       }
+  //       loaded = true;
+  //     };
+  //     script.onerror = function () {
+  //       console.log('Script failed to load');
+  //     };
+  //     document.getElementsByTagName('head')[0].appendChild(script);
+  //   });
+  // };
 
   //Handle Upload of the video
   const handleFileUpload = (event) => {
@@ -84,7 +86,7 @@ function App() {
     // ).then(() => {
     //   if (typeof window !== 'undefined') {
     //     // creates a ffmpeg instance.
-        ffmpeg = createFFmpeg({ log: true });
+        ffmpeg = createFFmpeg({ log: false });
         //Load ffmpeg.wasm-core script
         ffmpeg.load();
         //Set true that the script is loaded
@@ -100,6 +102,7 @@ function App() {
       currentVideo.onloadedmetadata = () => {
         setVideoDuration(currentVideo.duration);
         setEndTime(currentVideo.duration);
+        setVideoRatio({ width: currentVideo.videoWidth, height: currentVideo.videoHeight })
       };
     }
   }, [videoSrc]);
@@ -159,7 +162,15 @@ function App() {
           'writeFile',
           name,
           await fetchFile(videoFileValue),
-        );  
+        );
+        
+        //Write image to memory
+        ffmpeg.FS(
+          'writeFile',
+          imageName,
+          await fetchFile(imageFileValue),
+        );
+
         const videoFileType = type.split('/')[1];
         //Run the ffmpeg command to trim video
         //? trem file code
@@ -206,13 +217,12 @@ function App() {
         // );
 
         // add text to video
+        // ! showing errors
         // await ffmpeg.run(
         //   '-i',
         //   name,
         //   '-vf',
-        //   `drawtext=text='Hello World':fontcolor=white:fontsize=30:box=1:boxcolor=0x00000099:boxborderw=5:x=(w-text_w)/2: y=(h-text_h)/2`,
-        //   '-c:a',
-        //   'copy',
+        //   `drawtext=text='Hello world':x=(w-text_w)/2:y=(h-text_h)/2:fontfile=/path/to/font.ttf:fontcolor=white:fontsize=48`,
         //   `out.${videoFileType}`,
         // );
         
@@ -263,14 +273,35 @@ function App() {
         
         // add image to video
         // ? Done
+        // await ffmpeg.run(
+        //   '-i',
+        //   name,
+        //   '-i',
+        //   imageName,
+        //   '-filter_complex',
+        //   `[1:v]scale=${videoRatio.width}:${videoRatio.height}[wm];[0:v][wm]overlay=0:0`,
+        //   `out.${videoFileType}`,
+        // );
+        
+        // add sound to video
+        // ? Done
         await ffmpeg.run(
           '-i',
           name,
           '-i',
           imageName,
-          '-filter_complex',
-          `[0:v][1:v]overlay=0:0:enabled='between(t,0,5)'[v]`,
-          `out.${videoFileType}`,
+          "-filter_complex",
+          "[1:a]amerge=inputs=1[a]",
+          "-map",
+          "0:v",
+          "-map",
+          "[a]",
+          "-c:v",
+          "copy",
+          "-ac",
+          "1",
+          "-shortest",
+          `out.${videoFileType}`
         );
 
         //Convert data to url and store in videoTrimmedUrl state
