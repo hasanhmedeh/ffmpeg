@@ -171,7 +171,7 @@ function App() {
           await fetchFile(imageFileValue),
         );
 
-        const videoFileType = type.split('/')[1];
+        let videoFileType = type.split('/')[1];
         //Run the ffmpeg command to trim video
         //? trem file code
         // ? Done
@@ -218,13 +218,16 @@ function App() {
 
         // add text to video
         // ! showing errors
-        // await ffmpeg.run(
-        //   '-i',
-        //   name,
-        //   '-vf',
-        //   `drawtext=text='Hello world':x=(w-text_w)/2:y=(h-text_h)/2:fontfile==/system/fonts/DroidSans-Bold.ttf:fontcolor=white:fontsize=48`,
-        //   `out.${videoFileType}`,
-        // );
+        await ffmpeg.run(
+          '-i',
+          name,
+          '-vf',
+          `drawtext=text='Stack Overflow':fontcolor=white:fontsize=24:box=1:boxcolor=black@0.5:boxborderw=5:x=(w-text_w)/2:y=(h-text_h)/2`,
+          '-codec:a',
+          'copy',
+          `out.${videoFileType}`,
+          '--enable-libfreetype'
+        );
         
 
         // add two videos beside the other
@@ -304,6 +307,26 @@ function App() {
         //   `out.${videoFileType}`
         // );
 
+        // change resolution of the video
+        // ! video of resolution 1280x720 can't be converted to 1920x1080 which means the video can't be converted to higher resolution
+        // ? Done
+        // await ffmpeg.run(
+        //   '-i',
+        //   name,
+        //   '-vf',
+        //   `scale=-1:100`,
+        //   `out.${videoFileType}`,
+        // );
+
+        // change format of the video
+        // ? Done
+        // videoFileType = 'mp3'
+        // await ffmpeg.run(
+        //   '-i',
+        //   name,
+        //   `out.${videoFileType}`,
+        // );
+
         //Convert data to url and store in videoTrimmedUrl state
         let data = ffmpeg.FS('readFile', `out.${videoFileType}`);
         let url = URL.createObjectURL(
@@ -318,7 +341,7 @@ function App() {
     const { name,type } = videoFileValue;
     let a = document.createElement('a');
     a.href = videoTrimmedUrl;
-    a.download = name+"."+type.split('/')[1];
+    a.download = name+".mp4"
     a.click();
   };
 
